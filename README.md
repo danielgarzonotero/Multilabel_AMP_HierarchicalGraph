@@ -1,1 +1,2 @@
-# AMP-Peptide-Hierarchical-Graph-NN
+# Multilabel_AMP_HierarchicalGraph
+
