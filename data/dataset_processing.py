@@ -235,3 +235,39 @@ print(f"El DataFrame tiene {filas} filas y {columnas} columnas.")
 # Guarda el nuevo conjunto de datos en un nuevo archivo CSV
 result_df.to_csv('Jing_all_amp_nonamp_duplicated_removed.csv', index=False)  # Reemplaza 'nuevo_dataset.csv' con el nombre que desees para el nuevo archivo
 
+# %% ////////////////////////// Processing Multilabel CSV file //////////////////////
+
+import pandas as pd
+
+def multilabel_processing(path, condition):
+    # Cargar el archivo CSV
+    
+    df = pd.read_csv(path)
+    filas, columnas = df.shape
+    print(f"\nEl DataFrame tiene {filas} filas y {columnas} columnas.")
+    
+    if condition == 'validated':
+        condition_filter = (df['is_validated'] == 'YES')
+    elif condition == 'novalidated':
+        condition_filter = (df['is_validated'] == 'NO')
+    elif condition == 'all':
+        condition_filter = ((df['is_validated'] == 'YES') | (df['is_validated'] == 'NO'))
+    else:
+        raise ValueError("Invalid condition. Please choose from 'validated', 'novalidated', or 'all'.")
+    
+    filtered_df = df[condition_filter].copy()
+    
+    # Seleccionar las columnas especificadas
+    filtered_df = filtered_df.iloc[:, [1] + list(range(3, 9))] # Columna 1 a la 8, se indexan desde 0
+
+    # Guardar las columnas seleccionadas en un nuevo archivo CSV
+    filas, columnas = filtered_df.shape
+    filtered_df.to_csv(f'Chung_{filas}_training_{condition}.csv', index=False)
+    print(f"El DataFrame tiene {filas} filas y {columnas} columnas.")
+    
+
+multilabel_processing('dataset Chung/multiAMP_train.csv', 'validated')   
+multilabel_processing('dataset Chung/multiAMP_train.csv', 'novalidated')  
+multilabel_processing('dataset Chung/multiAMP_train.csv', 'all')  
+
+# %%
