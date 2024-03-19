@@ -270,4 +270,46 @@ multilabel_processing('dataset Chung/multiAMP_train.csv', 'validated')
 multilabel_processing('dataset Chung/multiAMP_train.csv', 'novalidated')  
 multilabel_processing('dataset Chung/multiAMP_train.csv', 'all')  
 
+# %% ////////////////////// Labing Multiactivities ///////////////////////
+
+import pandas as pd
+def labeling_activity(path, set):
+    
+    df = pd.read_csv(path)
+    df.drop(columns=['Activity'], inplace=True)
+    activity = ['Antibacterial','MammalianCells','Antifungal','Antiviral','Anticancer','Antiparasitic']
+    
+    for activi in activity:
+        df[activi]= 0
+        
+    filas, columnas = df.shape
+    df.to_csv(f'Xiao_{filas}_{set}.csv', index=False)
+    
+labeling_activity('dataset Xiao/Xiao_226_nonAMP_test.csv', 'testing')
+labeling_activity('dataset Xiao/Xiao_455_nonAMP_validation.csv', 'validation')
+labeling_activity('dataset Xiao/Xiao_1593_nonAMP_train.csv', 'training')
+
+
+# %% ////////////////////// 2 CSV Files togethes ///////////////////////
+import pandas as pd
+
+def processing(path_amp, path_nonamp):
+    df_amp = pd.read_csv(path_amp)
+    df_nonamp = pd.read_csv(path_nonamp)
+
+    # Combinar ambos DataFrames
+    df_combined = pd.concat([df_amp, df_nonamp], ignore_index=True)
+
+    # Mezclar los datos
+    df_shuffled = df_combined.sample(frac=1, random_state=1).reset_index(drop=True)
+
+    # Guardar el DataFrame combinado y mezclado en un nuevo archivo CSV
+    filas, columnas = df_shuffled.shape
+    df_shuffled.to_csv(f'Chung_Xiao_validated_{filas}_testing.csv', index=False, quoting=None)
+
+    return
+
+processing('dataset Chung/Chung_591_testing_validated.csv', 'dataset Xiao/Xiao_226_testing.csv')
+
+
 # %%
