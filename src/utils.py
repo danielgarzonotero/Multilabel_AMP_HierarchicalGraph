@@ -73,8 +73,8 @@ def sequences_geodata(cc, sequence, y, aminoacids_ft_dict, node_ft_dict, edge_ft
     #BLOSUM62 feature matrix
     blosum62 = torch.tensor(np.array(construir_matriz_caracteristicas(sequence)), dtype =torch.float32, device = device)
 
-    y = label_representation(y, device)
-
+    y = torch.tensor(np.array([y]), dtype=torch.float32, device=device)
+    
     geo_dp = Data(x=nodes_features,
                   y=y,
                   edge_index=graph_edges, 
@@ -87,15 +87,6 @@ def sequences_geodata(cc, sequence, y, aminoacids_ft_dict, node_ft_dict, edge_ft
     
     return geo_dp, aminoacids_features, blosum62, sequence 
 
-
-def label_representation(y, device):
-    if y == 1:
-        
-        return torch.tensor(np.array([1]), dtype=torch.long, device=device)
-    elif y == 0:
-        return torch.tensor(np.array([0]), dtype=torch.long, device=device)
-    else:
-        raise ValueError("Invalid value for y. It should be either 0 or 1.")
 
     
     

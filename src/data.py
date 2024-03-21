@@ -10,12 +10,12 @@ from src.aminoacids_features import get_aminoacid_features
 #-------------------------------------- Dataset 1--------------------------------------------------
 
 class GeoDataset_1(InMemoryDataset):
-    def __init__(self, root='../data', raw_name='dataset/Xiao_training.csv', transform=None, pre_transform=None):
+    def __init__(self, root='../data', raw_name='dataset/Chung_Xiao_validated_7332_validation_training.csv', transform=None, pre_transform=None):
         self.filename = os.path.join(root, raw_name) 
         
         self.df = pd.read_csv(self.filename)
         self.x = self.df[self.df.columns[0]].values
-        self.y = self.df[self.df.columns[1]].values   
+        self.y = self.df[self.df.columns[1:7]].values  
         
         # Change root and processed_dir names
         super(GeoDataset_1, self).__init__(root=os.path.join(root, f'{raw_name.split(".")[0]}_processed'), transform=transform, pre_transform=pre_transform)
@@ -56,7 +56,7 @@ class GeoDataset_1(InMemoryDataset):
         torch.save((data, slices), self.processed_paths[0])
         
         # Ruta completa al directorio que deseas crear
-        dictionaries_path = 'data/dataset/dictionaries/training'
+        dictionaries_path = 'data/dataset/dictionaries/training_validation'
 
         # rutas relativas para los diccionarios
         aminoacids_features_dict_path = os.path.join(dictionaries_path, 'aminoacids_features_dict.pt')
@@ -70,7 +70,7 @@ class GeoDataset_1(InMemoryDataset):
 
      
 #-------------------------------------- Dataset 2--------------------------------------------------
-
+''' 
 class GeoDataset_2(InMemoryDataset):
     def __init__(self, root='../data', raw_name='dataset/Xiao_validation.csv', transform=None, pre_transform=None):
         self.filename = os.path.join(root, raw_name) 
@@ -128,17 +128,17 @@ class GeoDataset_2(InMemoryDataset):
         torch.save(aminoacids_features_dict, aminoacids_features_dict_path)
         torch.save(blosum62_dict, blosum62_dict_path)
         torch.save(sequences_dict , sequences_dict_path)
-        
+         '''
         
 #-------------------------------------- Dataset 3--------------------------------------------------
 
 class GeoDataset_3(InMemoryDataset):
-    def __init__(self, root='../data', raw_name='dataset/Xiao_testing.csv', transform=None, pre_transform=None):
+    def __init__(self, root='../data', raw_name='dataset/Chung_Xiao_validated_817_testing.csv', transform=None, pre_transform=None):
         self.filename = os.path.join(root, raw_name) 
         
         self.df = pd.read_csv(self.filename)
         self.x = self.df[self.df.columns[0]].values
-        self.y = self.df[self.df.columns[1]].values   
+        self.y = self.df[self.df.columns[1:7]].values  
         
         # Change root and processed_dir names
         super(GeoDataset_3, self).__init__(root=os.path.join(root, f'{raw_name.split(".")[0]}_processed'), transform=transform, pre_transform=pre_transform)

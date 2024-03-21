@@ -19,6 +19,9 @@ def train(model, device, dataloader, optim, epoch, type_dataset):
     elif type_dataset == 'testing':
         aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
         blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
+    elif type_dataset == 'training_validation':
+        aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
+        blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
     else:
         raise ValueError(f"Unsupported dataset: {type_dataset}")
     
@@ -41,10 +44,12 @@ def train(model, device, dataloader, optim, epoch, type_dataset):
                     monomer_labels
         )
         
+        loss = 0
+        for i in range(pred.size(1)):  # Iterar sobre cada etiqueta
+            loss += loss_func(pred[:, i], batch.y[:, i].float())  # Calcular la pérdida para cada etiqueta individualmente
         
-        # Calculate the loss:
-        loss = loss_func(pred.double(), batch.y.double())
-
+        loss /= pred.size(1)  # Promediar la pérdida sobre todas las etiquetas
+        
         # Backpropagation:
         loss.backward()
         optim.step()
@@ -77,6 +82,9 @@ def validation(model, device, dataloader, epoch, type_dataset):
     elif type_dataset == 'testing':
         aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
         blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
+    elif type_dataset == 'training_validation':
+        aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
+        blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
     else:
         raise ValueError(f"Unsupported dataset: {type_dataset}")
     
@@ -102,7 +110,11 @@ def validation(model, device, dataloader, epoch, type_dataset):
             
             
             # Calculate the loss:
-            loss = loss_func(pred.double(), batch.y.double())  
+            loss = 0
+            for i in range(pred.size(1)):  # Iterar sobre cada etiqueta
+                loss += loss_func(pred[:, i], batch.y[:, i].float())  # Calcular la pérdida para cada etiqueta individualmente
+            
+            loss /= pred.size(1)  # Promediar la pérdida sobre todas las etiquetas
 
             # Calculate the loss and add it to our total loss
             loss_collect += loss.item()  # loss summed across the batch
@@ -132,6 +144,10 @@ def predict_test(model, dataloader, device, weights_file, threshold, type_datase
         blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
         id_secuencias = importar_dicionario(type_dataset, 'sequences')
     elif type_dataset == 'testing':
+        aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
+        blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
+        id_secuencias = importar_dicionario(type_dataset, 'sequences')
+    elif type_dataset == 'training_validation':
         aminoacids_features_dict = importar_dicionario(type_dataset, 'aminoacids_features')
         blosum62_dict = importar_dicionario(type_dataset, 'blosum62')
         id_secuencias = importar_dicionario(type_dataset, 'sequences')
@@ -184,14 +200,21 @@ def predict_test(model, dataloader, device, weights_file, threshold, type_datase
     
     #This is to export the prediction rounded based on the threshold
     pred_all_csv = torch.cat(pred_all_csv, dim=0)
-    pred_all_csv = [custom_round(pred, threshold) for pred in pred_all_csv]
+    pred_all_csv = [apply_custom_round(pred, threshold) for pred in pred_all_csv]
+    pred_all_csv = np.stack(pred_all_csv)
     
     return x_all, y_all, pred_all, pred_all_csv
 
 
-def custom_round(pred, threshold):
-    return 1 if pred >= threshold else 0
+def apply_custom_round(pred_all_csv, threshold):
+    # Aplica round para redondear cada elemento del tensor a 0 o 1
+    pred_all_csv_rounded = torch.round(pred_all_csv)
+    
+    # Ajusta los valores redondeados según el umbral
+    pred_all_csv_rounded[pred_all_csv < threshold] = 0
+    pred_all_csv_rounded[pred_all_csv >= threshold] = 1
 
+    return pred_all_csv_rounded.cpu().numpy()
 
 def importar_dicionario(type_dataset, type_dictionario):
     return torch.load('data/dataset/dictionaries/{}/{}_dict.pt'.format(type_dataset, type_dictionario))

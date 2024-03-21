@@ -8,7 +8,7 @@ from torch_geometric.explain import CaptumExplainer, Explainer
 
 import pandas as pd
 from src.device import device_info
-from src.data import GeoDataset_1, GeoDataset_2,  GeoDataset_3
+from src.data import GeoDataset_1,  GeoDataset_3
 from src.model import GCN_Geo
 from src.process import train, validation, predict_test
 from src.evaluation_metrics import evaluate_model
@@ -23,26 +23,32 @@ start_time = time.time()
 
 # Build starting dataset: 
 datasets = {
-            'training_dataset': GeoDataset_1(root='data'),
-            'validation_dataset': GeoDataset_2(root='data'),
+            'training_validation_dataset': GeoDataset_1(root='data'),
             'testing_dataset': GeoDataset_3(root='data'),
             }
 
 
-training_datataset = datasets['training_dataset']
-validation_datataset = datasets['validation_dataset']
+dataset = datasets['training_validation_dataset']
 testing_datataset = datasets['testing_dataset']
 
-print('Number of NODES features: ', training_datataset.num_features)
-print('Number of EDGES features: ', training_datataset.num_edge_features)
+#  Number of datapoints in each dataset:
+size_training_dataset = 0.80
+n_training = int(len(dataset) * size_training_dataset)
+n_validation = len(dataset) - n_training
+
+#  Define pytorch training and validation set objects:
+training_set, validation_set = torch.utils.data.random_split(dataset, [n_training, n_validation], generator=torch.Generator().manual_seed(24))
+
+print('Number of NODES features: ', dataset.num_features)
+print('Number of EDGES features: ', dataset.num_edge_features)
 
 finish_time_preprocessing = time.time()
 time_preprocessing = (finish_time_preprocessing - start_time) / 60 
 
 # Define dataloaders para conjuntos de entrenamiento, validación y prueba:
 batch_size = 100  
-train_dataloader = DataLoader(training_datataset, batch_size, shuffle=True)
-val_dataloader = DataLoader(validation_datataset , batch_size, shuffle=True)
+train_dataloader = DataLoader(training_set, batch_size, shuffle=True)
+val_dataloader = DataLoader(validation_set, batch_size, shuffle=True)
 test_dataloader = DataLoader(testing_datataset, batch_size, shuffle=True)
 
 ## RUN TRAINING LOOP: 
@@ -52,8 +58,8 @@ torch.manual_seed(24)
 
 # Set up model:
 # Initial Inputs
-initial_dim_gcn = training_datataset.num_features
-edge_dim_feature = training_datataset.num_edge_features
+initial_dim_gcn = dataset.num_features
+edge_dim_feature = dataset.num_edge_features
 
 hidden_dim_nn_1 = 20
 hidden_dim_nn_2 = 10
@@ -63,7 +69,7 @@ hidden_dim_gat_0 = 15
 hidden_dim_fcn_1 = 10
 hidden_dim_fcn_2 = 5
 hidden_dim_fcn_3 = 3 
-
+dropout= 0.1
 
 model = GCN_Geo(
                 initial_dim_gcn,
@@ -76,6 +82,7 @@ model = GCN_Geo(
                 hidden_dim_fcn_1,
                 hidden_dim_fcn_2,
                 hidden_dim_fcn_3,
+                dropout
             ).to(device)
 
 
@@ -95,13 +102,13 @@ val_losses = []
 best_val_loss = float('inf')  # infinito
 
 start_time_training = time.time()
-number_of_epochs = 100
+number_of_epochs = 2
 
 for epoch in range(1, number_of_epochs+1):
-    train_loss = train(model, device, train_dataloader, optimizer, epoch, type_dataset='training')
+    train_loss = train(model, device, train_dataloader, optimizer, epoch, type_dataset='training_validation')
     train_losses.append(train_loss)
 
-    val_loss = validation(model, device, val_dataloader, epoch, type_dataset='validation')
+    val_loss = validation(model, device, val_dataloader, epoch, type_dataset='training_validation')
     val_losses.append(val_loss)
 
     # Programar el LR basado en la pérdida de validación
@@ -131,33 +138,42 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 
 # Guardar la figura en formato PNG con dpi 216
-plt.savefig('results/loss_curve.png', dpi=216)
+plt.savefig('results/Loss_curve.png', dpi=216)
 plt.show()
 
 # Testing:
 weights_file = "weights/best_model_weights.pth"
 threshold = 0.5
+column_names = ['Antibacterial', 'MammalianCells', 'Antifungal', 'Antiviral', 'Anticancer', 'Antiparasitic']
 
 
 # ------------------------------------////////// Training set /////////////---------------------------------------------------
+start_time_predicting = time.time()
+training_input, training_target, training_pred, training_pred_csv = predict_test(model, train_dataloader, device, weights_file, threshold, type_dataset='training_validation')
 
+training_target_columns = training_target.cpu().numpy().T.tolist()
+training_pred_columns = training_pred_csv.T.tolist()
 
-training_input, training_target, training_pred, training_pred_csv = predict_test(model, train_dataloader, device, weights_file, threshold, type_dataset='training')
+# Crear un diccionario para el DataFrame
+train_set_prediction = {
+    'Sequence': training_input,
+}
 
-#Saving a CSV file with prediction values
-prediction_train_set = {
-                        'Sequence':training_input,
-                        'Target': training_target.cpu().numpy(),
-                        'Prediction':  training_pred_csv
-                        }
+# Agregar cada columna de la matriz de objetivos al diccionario
+for i, column in enumerate(training_target_columns):
+    train_set_prediction[column_names[i]] = column
 
-df = pd.DataFrame(prediction_train_set)
-df.to_excel('results/training_prediction.xlsx', index=False)
+# Agregar cada columna de la matriz de predicciones al diccionario
+for i, column in enumerate(training_pred_columns):
+    train_set_prediction[f'Pred._{column_names[i]}'] = column
 
+# Crear el DataFrame
+df = pd.DataFrame(train_set_prediction)
+
+# Guardar el DataFrame en un archivo Excel
+df.to_excel('results/Training_prediction.xlsx', index=False)
 # Evaluation metrics:
 
-TP_training, TN_training, FP_training, FN_training, ACC_training, PR_training, \
-SN_training, SP_training, F1_training, mcc_training, roc_auc_training = \
 evaluate_model(prediction=training_pred,
                target=training_target,
                dataset_type='Training',
@@ -166,23 +182,32 @@ evaluate_model(prediction=training_pred,
 
 
 #-------------------------------------------- ////////// Validation Set //////////-------------------------------------------------
-validation_input, validation_target, validation_pred, validation_pred_csv = predict_test(model, val_dataloader, device, weights_file, threshold, type_dataset='validation')
+validation_input, validation_target, validation_pred, validation_pred_csv = predict_test(model, val_dataloader, device, weights_file, threshold, type_dataset='training_validation')
 
-#Saving a CSV file with prediction values
-prediction_validation_set = {
-                            'Sequence':validation_input,
-                            'Target': validation_target.cpu().numpy(),
-                            'Prediction':  validation_pred_csv
-                            }
+validation_target_columns = validation_target.cpu().numpy().T.tolist()
+validation_pred_columns= validation_pred_csv.T.tolist()
 
-df = pd.DataFrame(prediction_validation_set)
-df.to_excel('results/validation_prediction.xlsx', index=False)
+# Crear un diccionario para el DataFrame
+validation_set_prediction = {
+    'Sequence': validation_input,
+}
 
+# Agregar cada columna de la matriz de objetivos al diccionario
+for i, column in enumerate(validation_target_columns):
+    validation_set_prediction[column_names[i]] = column
+
+# Agregar cada columna de la matriz de predicciones al diccionario
+for i, column in enumerate(validation_pred_columns):
+    validation_set_prediction[f'Pred._{column_names[i]}'] = column
+
+# Crear el DataFrame
+df = pd.DataFrame(validation_set_prediction)
+
+# Guardar el DataFrame en un archivo Excel
+df.to_excel('results/Validation_prediction.xlsx', index=False)
 
 # Evaluation metrics:
 
-TP_validation, TN_validation, FP_validation, FN_validation, ACC_validation, PR_validation, \
-SN_validation, SP_validation, F1_validation, mcc_validation, roc_auc_validation = \
 evaluate_model(prediction = validation_pred,
                target = validation_target,
                dataset_type = 'Validation',
@@ -190,40 +215,50 @@ evaluate_model(prediction = validation_pred,
                device = device)
 
 # --------------------------------------------////////// Test Set //////////---------------------------------------------------
-start_time_testing = time.time()
 
 test_input, test_target, test_pred, test_pred_csv = predict_test(model, test_dataloader, device, weights_file,threshold, type_dataset='testing')
 
 finish_time_testing = time.time()
-time_prediction = (finish_time_testing- start_time_testing) / 60
 
-#Saving a CSV file with prediction values
-prediction_test_set = {
-                        'Sequence':test_input,
-                        'Target': test_target.cpu().numpy(),
-                        'Prediction': test_pred_csv
-                        }
+test_target_columns = test_target.cpu().numpy().T.tolist()
+test_pred_columns= test_pred_csv.T.tolist()
 
-df = pd.DataFrame(prediction_test_set)
-df.to_excel('results/testing_prediction.xlsx', index=False)
+# Crear un diccionario para el DataFrame
+test_set_prediction = {
+    'Sequence': test_input,
+}
+
+# Agregar cada columna de la matriz de objetivos al diccionario
+for i, column in enumerate(test_target_columns):
+    test_set_prediction[column_names[i]] = column
+
+# Agregar cada columna de la matriz de predicciones al diccionario
+for i, column in enumerate(test_pred_columns):
+    test_set_prediction[f'Pred._{column_names[i]}'] = column
+
+# Crear el DataFrame
+df = pd.DataFrame(test_set_prediction)
+
+# Guardar el DataFrame en un archivo Excel
+df.to_excel('results/Test_prediction.xlsx', index=False)
 
 # Evaluation metrics:
 
-TP_test, TN_test, FP_test, FN_test, ACC_test, PR_test, \
-SN_test, SP_test, F1_test, mcc_test, roc_auc_test = \
 evaluate_model(prediction=test_pred,
                target = test_target,
                dataset_type = 'Testing',
                threshold = threshold,
-               device = device)
+               device = device) 
 
 
-finish_time = time.time()
-total_time = (finish_time - start_time) / 60
+finish_time_predicting = time.time()
+time_prediction = (finish_time_predicting - start_time_predicting) / 60
+total_time = (finish_time_predicting - start_time) / 60
 
 #--------------------------------///////////Result DataFrame////////////---------------------------------------
+
 data = {
-    "Metric": [
+     "Metric": [
     "node_features",
     "edge_features",
     "initial_dim_gcn",
@@ -234,52 +269,20 @@ data = {
     "hidden_dim_fcn_1",
     "hidden_dim_fcn_2",
     "hidden_dim_fcn_3",
+    "dropout",
     "batch_size",
     "learning_rate",
     "weight_decay",
     "number_of_epochs",
     "threshold",
-    "TP_training",
-    "TN_training",
-    "FP_training",
-    "FN_training",
-    "ACC_training",
-    "PR_training",
-    "SN_training",
-    "SP_training",
-    "F1_training",
-    "mcc_training",
-    "roc_auc_training",
-    "TP_validation",
-    "TN_validation",
-    "FP_validation",
-    "FN_validation",
-    "ACC_validation",
-    "PR_validation",
-    "SN_validation",
-    "SP_validation",
-    "F1_validation",
-    "mcc_validation",
-    "roc_auc_validation",
-    "TP_test",
-    "TN_test",
-    "FP_test",
-    "FN_test",
-    "ACC_test",
-    "PR_test",
-    "SN_test",
-    "SP_test",
-    "F1_test",
-    "mcc_test",
-    "roc_auc_test",
     "time_preprocessing",
     "time_training",
     "time_prediction",
     "total_time"
     ],
     "Value": [
-        training_datataset.num_features,
-        training_datataset.num_edge_features,
+        dataset.num_features,
+        dataset.num_edge_features,
         initial_dim_gcn,
         edge_dim_feature ,
         hidden_dim_nn_1 ,
@@ -288,44 +291,12 @@ data = {
         hidden_dim_fcn_1 ,
         hidden_dim_fcn_2 ,
         hidden_dim_fcn_3 ,
+        dropout,
         batch_size,
         learning_rate,
         weight_decay,
         number_of_epochs,
         threshold,
-        TP_training,
-        TN_training,
-        FP_training,
-        FN_training,
-        ACC_training, 
-        PR_training, 
-        SN_training, 
-        SP_training,
-        F1_training,
-        mcc_training,
-        roc_auc_training,
-        TP_validation,
-        TN_validation,
-        FP_validation,
-        FN_validation,
-        ACC_validation, 
-        PR_validation, 
-        SN_validation, 
-        SP_validation,
-        F1_validation,
-        mcc_validation,
-        roc_auc_validation,
-        TP_test,
-        TN_test,
-        FP_test,
-        FN_test,
-        ACC_test, 
-        PR_test, 
-        SN_test, 
-        SP_test,
-        F1_test,
-        mcc_test,
-        roc_auc_test,
         time_preprocessing, 
         time_training,
         time_prediction,
@@ -336,11 +307,11 @@ data = {
 
 
 df = pd.DataFrame(data)
-df.to_csv('results/results_training_validation_test.csv', index=False)
+df.to_csv('results/Model_hyperparameters.csv', index=False)
 
 #-------------------------------------///////// Explainer ////// -------------------------------------------
 
-explainer = Explainer(
+''' explainer = Explainer(
                     model=model,
                     algorithm=CaptumExplainer('IntegratedGradients'),
                     explanation_type='model', #Explains the model prediction.
@@ -359,11 +330,11 @@ explainer = Explainer(
 
 
 # Generar explicaciones para cada nodo en cada lote del DataLoader
-aminoacids_features_dict = torch.load('data/dataset/dictionaries/training/aminoacids_features_dict.pt', map_location=device)
-blosum62_dict = torch.load('data//dataset/dictionaries/training/blosum62_dict.pt', map_location=device)
+aminoacids_features_dict = torch.load('data/dataset/dictionaries/training_validation/aminoacids_features_dict.pt', map_location=device)
+blosum62_dict = torch.load('data//dataset/dictionaries/training_validation/blosum62_dict.pt', map_location=device)
 
-batch_size = len(training_datataset.data.cc)
-train_dataloader = DataLoader(training_datataset, batch_size, shuffle=True)
+batch_size = len(training_set)
+train_dataloader = DataLoader(training_set, batch_size, shuffle=True)
 
 start_time = time.time()
 
@@ -376,7 +347,7 @@ for batch in train_dataloader:
     
     explanation = explainer(
                             x=x, 
-                            target = target,
+                            
                             edge_index=edge_index,
                             edge_attr=edge_attr,
                             aminoacids_features_dict=aminoacids_features_dict,
@@ -390,7 +361,7 @@ for batch in train_dataloader:
     explanation.visualize_feature_importance(path, top_k = node_features_dim) 
     finish_time = time.time()
     time_prediction = (finish_time- start_time) / 60
-    print('\nTime Feature Importance:',time_prediction , 'min')
+    print('\nTime Feature Importance:',time_prediction , 'min') '''
 
-
-# %%
+print("//////////// READY //////////////")
+    # %%

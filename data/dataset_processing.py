@@ -100,12 +100,10 @@ print("El archivo CSV se ha convertido a formato FASTA exitosamente.")
 import pandas as pd
 import random
 
-df = pd.read_csv('Xiao_nonAMP_train.csv' )
-df_target = pd.read_csv('Xiao_AMP_trainc09n3g2d1.csv' )
+df = pd.read_csv('dataset/Chung_Xiao_validated_7332_validation_training.csv' )
 
 total_rows = len(df)
-
-target_rows = len(df_target)
+target_rows = int(7332 * 0.01) 
 
 if total_rows > target_rows:
     
@@ -116,8 +114,7 @@ if total_rows > target_rows:
 
     df = df.drop(rows_to_drop_indices)
 
-df.to_csv('Xiao_nonAMP_09train.csv', index=False, quoting=None)
-df = pd.read_csv('Xiao_nonAMP_09train.csv')
+df.to_csv('dataset/1_Chung_Xiao_validated_7332_validation_training.csv', index=False, quoting=None)
 filas, columnas = df.shape
 print(f"El DataFrame tiene {filas} filas y {columnas} columnas.")
 

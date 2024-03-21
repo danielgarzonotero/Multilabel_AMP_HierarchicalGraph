@@ -23,7 +23,7 @@ class GCN_Geo(torch.nn.Module):
                 hidden_dim_fcn_1,
                 hidden_dim_fcn_2,
                 hidden_dim_fcn_3,
-                dropout=0.3):
+                dropout):
         super(GCN_Geo, self).__init__()
 
         self.nn_conv_1 = NNConv(initial_dim_gcn, hidden_dim_nn_1,
@@ -35,14 +35,14 @@ class GCN_Geo(torch.nn.Module):
                                 aggr='add')
         
         #The 7 and 24 comes from the four amino acid features and blosum62 matrix that were concatenated,  95+24
-        self.nn_gat_0 = ARMAConv(hidden_dim_nn_2+95, hidden_dim_gat_0, num_stacks = 3, dropout=0.1, num_layers=10, shared_weights = False ) 
+        self.nn_gat_0 = ARMAConv(hidden_dim_nn_2+95, hidden_dim_gat_0, num_stacks = 3, dropout=dropout, num_layers=6, shared_weights = False ) 
         self.readout = aggr.SumAggregation()
         
         #The 7 comes from the four peptides features that were concatenated, +7
         self.linear1 = nn.Linear(hidden_dim_gat_0, hidden_dim_fcn_1)
         self.linear2 = nn.Linear(hidden_dim_fcn_1, hidden_dim_fcn_2 )
         self.linear3 = nn.Linear(hidden_dim_fcn_2, hidden_dim_fcn_3) 
-        self.linear4 = nn.Linear(hidden_dim_fcn_3, 1)
+        self.linear4 = nn.Linear(hidden_dim_fcn_3, 6)
         
         self.dropout = nn.Dropout(dropout)
         
@@ -74,6 +74,7 @@ class GCN_Geo(torch.nn.Module):
             
             xi = x[mask]
             monomer_labels_i = monomer_labels[mask]
+            #TODO aminoacid features, no dictionaries
             cc_i = cc[i].item()
             
             num_aminoacid = torch.max(monomer_labels_i).item()
@@ -108,8 +109,9 @@ class GCN_Geo(torch.nn.Module):
         p = F.relu(p)
         
         p = self.linear4(p)
+        #p = p.view(-1,)
         
-        return p.view(-1,)
+        return p
 
 
 device_info_instance = device_info()
