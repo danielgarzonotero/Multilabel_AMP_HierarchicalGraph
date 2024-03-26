@@ -102,13 +102,13 @@ val_losses = []
 best_val_loss = float('inf')  # infinito
 
 start_time_training = time.time()
-number_of_epochs = 2
+number_of_epochs = 100
 
 for epoch in range(1, number_of_epochs+1):
-    train_loss = train(model, device, train_dataloader, optimizer, epoch, type_dataset='training_validation')
+    train_loss = train(model, device, train_dataloader, optimizer, epoch)
     train_losses.append(train_loss)
 
-    val_loss = validation(model, device, val_dataloader, epoch, type_dataset='training_validation')
+    val_loss = validation(model, device, val_dataloader, epoch)
     val_losses.append(val_loss)
 
     # Programar el LR basado en la pérdida de validación
@@ -149,7 +149,7 @@ column_names = ['Antibacterial', 'MammalianCells', 'Antifungal', 'Antiviral', 'A
 
 # ------------------------------------////////// Training set /////////////---------------------------------------------------
 start_time_predicting = time.time()
-training_input, training_target, training_pred, training_pred_csv = predict_test(model, train_dataloader, device, weights_file, threshold, type_dataset='training_validation')
+training_input, training_target, training_pred, training_pred_csv = predict_test(model, train_dataloader, device, weights_file, threshold)
 
 training_target_columns = training_target.cpu().numpy().T.tolist()
 training_pred_columns = training_pred_csv.T.tolist()
@@ -182,7 +182,7 @@ evaluate_model(prediction=training_pred,
 
 
 #-------------------------------------------- ////////// Validation Set //////////-------------------------------------------------
-validation_input, validation_target, validation_pred, validation_pred_csv = predict_test(model, val_dataloader, device, weights_file, threshold, type_dataset='training_validation')
+validation_input, validation_target, validation_pred, validation_pred_csv = predict_test(model, val_dataloader, device, weights_file, threshold)
 
 validation_target_columns = validation_target.cpu().numpy().T.tolist()
 validation_pred_columns= validation_pred_csv.T.tolist()
@@ -216,7 +216,7 @@ evaluate_model(prediction = validation_pred,
 
 # --------------------------------------------////////// Test Set //////////---------------------------------------------------
 
-test_input, test_target, test_pred, test_pred_csv = predict_test(model, test_dataloader, device, weights_file,threshold, type_dataset='testing')
+test_input, test_target, test_pred, test_pred_csv = predict_test(model, test_dataloader, device, weights_file,threshold)
 
 finish_time_testing = time.time()
 
@@ -259,8 +259,6 @@ total_time = (finish_time_predicting - start_time) / 60
 
 data = {
      "Metric": [
-    "node_features",
-    "edge_features",
     "initial_dim_gcn",
     "edge_dim_feature",
     "hidden_dim_nn_1",
@@ -281,8 +279,6 @@ data = {
     "total_time"
     ],
     "Value": [
-        dataset.num_features,
-        dataset.num_edge_features,
         initial_dim_gcn,
         edge_dim_feature ,
         hidden_dim_nn_1 ,

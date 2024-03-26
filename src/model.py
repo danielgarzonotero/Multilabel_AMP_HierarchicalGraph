@@ -51,12 +51,11 @@ class GCN_Geo(torch.nn.Module):
                 x,
                 edge_index,
                 edge_attr,
-                aminoacids_features_dict,
-                blosum62_dict,
                 idx_batch,
                 cc,
-                monomer_labels
-                ): #TODO REVISAR COMO SE GUARDA MONOMER LABEL, Y GUARDAR ASI AMINOACID FEATURES Y SI QUIZAS ASI FUNCIONA LA MASK
+                monomer_labels,
+                aminoacids_features
+                ): 
         
         x = self.dropout(x)
         x = self.nn_conv_1(x, edge_index, edge_attr)
@@ -70,12 +69,13 @@ class GCN_Geo(torch.nn.Module):
         
         for i in range(len(cc)): 
             
+            cc_i = cc[i].item()
             mask = idx_batch == i
-            
             xi = x[mask]
             monomer_labels_i = monomer_labels[mask]
-            #TODO aminoacid features, no dictionaries
-            cc_i = cc[i].item()
+            
+            aminoacid_ft_tupla = [tupla for tupla in aminoacids_features if tupla[0] == cc_i]
+            aminoacids_features_i = aminoacid_ft_tupla[0][1]
             
             num_aminoacid = torch.max(monomer_labels_i).item()
             amino_index_i = get_amino_indices(num_aminoacid)
@@ -84,7 +84,7 @@ class GCN_Geo(torch.nn.Module):
             xi = scatter(xi, monomer_labels_i, dim=0, reduce="sum")
             
             # adding amino acids features
-            aminoacids_features_i = aminoacids_features_dict[cc_i]
+            #aminoacids_features_i = aminoacids_features_dict[cc_i] #TODO REMOVER DICCIONARIOS
             
             xi = torch.cat((xi, aminoacids_features_i), dim=1)
            
@@ -109,13 +109,14 @@ class GCN_Geo(torch.nn.Module):
         p = F.relu(p)
         
         p = self.linear4(p)
-        #p = p.view(-1,)
         
         return p
 
 
 device_info_instance = device_info()
 device = device_info_instance.device
+
+#TODO Remover?
 
 def get_amino_indices(num_aminoacid):
     edges = []
@@ -127,7 +128,9 @@ def get_amino_indices(num_aminoacid):
     return torch.tensor(graph_edges, dtype=torch.long, device = device) 
 
 
+## %%
+
+
+
+
 # %%
-
-
-
